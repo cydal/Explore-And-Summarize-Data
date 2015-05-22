@@ -1,0 +1,905 @@
+---
+title: "Untitled"
+author: "Sijuade Oguntayo"
+date: "Sunday, May 10, 2015"
+output: html_document
+---
+
+##Introduction
+The emissions dataset consists of a number variables hand picked by me and wrangled and merged from 11 different datasets all downloaded from the Gapminder or Databank websites. 
+I chose this dataset for my project because I am working on something similar for the Data Visualization with D3 Module on the same Nanodegree, the visualization can be viewed at http://sijvizproject.esy.es/ (note that the visualization is not ready yet and is still being developed)
+
+With everything in the news about global warming, I hoped to investigate for myself based on publicly available data. Since I at the start of this project knew little to nothing about global warming, my goal for this project is to educate myself on it.
+
+From the very start, Emissions yearly and Emissions capita I felt should be the variables of interest and all subsequent analysis will be baed around them, I will include a univariate section using histograms, a bivariate using a number of plot types and finally a multivariate section typically using Continent the only categorical variable I added to the dataset. The plan is to then build a predictive model if possible and see if I can predict either the emissions yearly or capita given a number of features.
+
+
+#Dataset summaries
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df = read.csv("df.csv", header = TRUE)
+summary(df)
+str(df)
+head(df)
+
+```
+
+#Univariate Analysis
+
+Histograms
+Emissions Yearly Histogram
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+```
+
+
+This seems to be very right skewed with lots of outliers however, A log transformation makes it more normally distributed. Adding the 
+continent variable shows a clear pattern in how different continents contribute to global emission.
+African countries generally contribute the least with not a lot of variation, Asian countries show a lot of variation from 
+not contributing a lot to contributing a very high amount, this is to be expected taking into account countries like China 
+but just as in the case with Africa, many of the countries are under-developed and would contribute little to 
+emission. Europe shows most of it's countries contributing a fair bit with a handful of contries contributing a lot for example, the
+UK, Germany and France. The histogram also appears to be bi-modal, many yearly emissions counts seem to fall within those ranges. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Emissions_Yearly_Total), 
+       data = df) + 
+  geom_histogram(position = "dodge", 
+                 binwidth = 0.3) + 
+  scale_x_log10()
+with(df, by(Emissions_Yearly_Total, 
+            Continent, 
+            summary))
+```
+
+Emissions Capita
+Just as in the case of Emissions yearly, emissions per capita is also right skewed, applying a logarithmic transformation 
+makes the distribution more normal.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Emissions_Capita), 
+       data = df) + 
+  geom_histogram(binwidth = 0.4, 
+                 position = "dodge") + 
+  scale_x_log10()
+with(df, by(Emissions_Capita, 
+            Continent, 
+            summary))
+
+```
+
+
+It is important to note that the histograms for both the emissions yearly and emissions capita are for the countries for all 
+of the years and as a result, many countries are represented more than once for each year that we have data for that country. 
+It might be helpful to draw histograms for one specific year though we should have a similar pattern for those as well. 
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Populations), data = df) +
+  geom_histogram(binwidth = 0.1) +
+  scale_x_log10()
+
+with(df, 
+     summary(Populations))
+
+```
+
+Country populations with a log scale applied results in normal looking distribution
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Literacy), data = df) +
+  geom_histogram(binwidth = 1)
+
+with(df, 
+     summary(Literacy))
+
+```
+
+This plot shows a left skewed distribution for the world's literacy rate with a high count of countries on the right side with a high literacy rate. It would be interesting to view in the bivariate section how this varies by continent.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Energy_Use), data = df) +
+  geom_histogram(binwidth = 0.1) + 
+  scale_x_log10()
+
+with(subset(df, !is.na(Energy_Use)), 
+     summary(Energy_Use))
+
+```
+
+A histogram of Energy use shows a multimodal distribution, this twin peak represents the highest amount of energy used by the most count of countries for all the time. Just as in the previous case, Energy should also be explored in more detail in the bivariate section. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(GDP), data = df) +
+  geom_histogram(binwidth = 0.12) + 
+  scale_x_log10()
+
+with(subset(df, !is.na(GDP)), 
+     summary(GDP))
+
+```
+
+GDP also scaled logarithmically appears to be normally distributed. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Access_Elec), data = df) +
+  geom_histogram(binwidth = 2)
+
+with(subset(df, !is.na(Access_Elec)), 
+     summary(Access_Elec))
+
+```
+
+This is a rightly skewed distribution for the percentage with access to electricity, an interesting to note is that both the 3rd quartile and Max are 100, this tells us that the 3rd quartile(upper 25%) have a population with a 100% access to electricity and that over 50% have populations with over 90.9% access to electricity. This feature can also benefit from a little bi and multi-variate analysis.
+
+
+A good place to start is with a scatterplot matrix to show all the variables' relationship to each other. Dataset is subset only for the year 2000 and some columns are excluded
+
+```{r, echo=FALSE, warning=FALSE}
+library(GGally)
+df_subset = subset(df, Year == 2000)
+df_subset = df_subset[, c(4:13)]
+
+cols = c("Pop", "E_Yrly", "E_Cap", 
+         "Glob_Pop", "Cont", "Lit", 
+         "Elec", "For", "GDP", "Eng")
+
+colnames(df_subset) = cols
+df_subset$Glob_Pop = NULL
+
+ggpairs(df_subset, size = 5) +
+  theme(axis.ticks = element_blank(), 
+        axis.text = element_blank(), 
+        panel.grid.major = element_blank())
+```
+
+Right out of the box without any transformations, some variables look to be highly correlated. Populations and Emissions 
+yearly Total with a correlation of 0.614, Literacy rate and access to electricity with 0.8, GDP and emissions yearly total, 
+emission per capita with energy use. There are other relatively strong correlations though not as strong as the ones 
+mentioned. 
+
+#Structure of the dataset
+
+There are 7,044 observations in the dataset with 13 features(Country, Year,	Populations,	Emissions_Yearly_Total,	Emissions_Capita,	Global Population,	Continent,	Literacy % rate,	percentage with access to electricty, 	% of land area with Forest,	GDP,	Energy Use,	% of energy use that is Alternative energy).
+
+Main features of the dataset
+Emissions yearly and Emissions per capita
+
+Both features are relatively similar, the are also different and say very different things, a country with a high yearly emission 
+for example may have a low, high or any emissions per capita and vice versa. 
+
+What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+I'd say all of them, I put together the dataset and handpicked all the features in it with the hope that they will help, whether or not they do remains to be seen.
+
+Did you create any new variables from existing variables in the dataset?
+Not exactly, I did have to include the continents variable so I could have a categorical variable to split the data on but that was done by merging with a contry-continent dataset.
+
+Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+Yes. A number of logarithmic transformations had to be applied to both the emissions features as well as populations.
+
+#Bivariate Section
+
+Coloring the earlier histogram by continent
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Literacy, 
+           fill = Continent), 
+       data = df) +
+  geom_histogram(binwidth = 5, 
+                 position = "dodge") + 
+  scale_x_continuous(breaks = seq(0, 100, 10))
+
+with(subset(df, !is.na(Literacy)), 
+     by(Literacy, Continent, summary))
+
+```
+
+This plot shows the literacy rate coloured in by cotinents, Some countries in each of the continents except Africa have a 100% literacy rate.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(GDP, 
+           fill = Continent), 
+       data = df) +
+  geom_histogram(binwidth = 0.6, 
+                 position = "dodge") + 
+  scale_x_log10()
+
+with(subset(df, 
+            !is.na(GDP)), 
+     by(GDP, 
+        Continent, summary))
+
+```
+
+GDP Histogram filled by Continents.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Energy_Use, 
+           fill = Continent), 
+       data = df) +
+  geom_histogram(binwidth = 0.3, 
+                 position = "dodge") + 
+  scale_x_log10()
+
+with(subset(df, 
+            !is.na(Energy_Use)), 
+     by(Energy_Use, 
+        Continent, summary))
+
+```
+
+Energy use histogram by Continents.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Emissions_Yearly_Total, 
+           fill = Continent), data = df) + 
+  geom_histogram(position = "dodge", 
+                 binwidth = 1) + 
+  scale_x_log10()
+with(df, by(Emissions_Yearly_Total, 
+            Continent, 
+            summary))
+```
+
+and for the emissions capita, 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Emissions_Capita, 
+           fill = Continent), 
+       data = df) + 
+  geom_histogram(binwidth = 1, 
+                 position = "dodge") + 
+  scale_x_log10()
+```
+
+As expected, Europe and North America contribute a lot along with Asia with the remaining countinents contributing relatively little. 
+
+
+
+Subsetting the year by 2000 to see if individual year follows general trend
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Emissions_Capita, 
+           fill = Continent), 
+       data = subset(df, Year == 2000)) + 
+  geom_histogram(position = "dodge", 
+                 binwidth = 1) +
+  scale_x_log10()
+```
+
+Doing the same for emissions Yearly
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Emissions_Yearly_Total, 
+           fill = Continent), 
+       data = subset(df, Year == 2000)) + 
+  geom_histogram(position = "dodge", 
+                 binwidth = 1) +
+  scale_x_log10()
+```
+
+As expected both histograms show a similar pattern to that seen for the overall, taking into account of course that a handful of 
+countries are emitting more in subsequent years. A bar chart showing the emissions for each continent might help.
+
+
+
+In an earlier histogram, we saw how different continents contribute to the global emissions. Continents like Asia for example show a very wide spread, implying there are countries within the continent across the entire spectrum low to high emissions. It would be helpful to know exactly which countries within which continents are driving up the total emissions for a particular continent and which ones are contributing less. A heat map can help visualize this and it can also show how it has changed across the years.
+
+
+Bar Charts for both emission yearly by continent
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Continent, 
+           Emissions_Yearly_Total/1000000), 
+       data = df) + 
+  geom_bar(stat = "identity", 
+           fill = I('red')) + 
+  ylab("Total Emissions Yearly(In Millions)")
+
+with(df, by(Emissions_Yearly_Total/1000000, 
+            Continent, 
+            sum))
+```
+
+
+For emissions per capita
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Continent, 
+           Emissions_Capita/1000), 
+       data = df) + 
+  geom_bar(stat = "identity", 
+           fill = I('red')) + 
+  ylab("Total Emissions per Capita(In Thousands)") +
+  scale_y_continuous(breaks = seq(0, 12, 1))
+
+with(df, by(Emissions_Capita/1000, 
+            Continent, 
+            sum))
+```
+
+The bar chart for Emissions capita by continent tells a slightly different story, Africa and South America remain relatively 
+low with Australia slightly higher than both. Europe and Asia are quite high, higher even than North America. The emissions 
+per capita measures each country's emission divided by the population thereby showing the average emissions per person.
+
+It would be interesting to see exactly what the distribution is like for each continent for both the yearly and per capita emissions. A boxplot would be ideal for this since it shows the range as well as the IQR. Also included is a point for the mean though the median is more ideal for this distribution due to outliers.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(aes(Continent, 
+           Emissions_Yearly_Total), 
+       data = df) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(1, 1000000)) + 
+  stat_summary(fun.y = mean, 
+               geom="point", 
+               color="red") + 
+  scale_y_log10(breaks = c(1, 1000, 2000, 
+                           10000, 50000, 
+                           100000, 1000000))
+
+with(df, by(Emissions_Yearly_Total, 
+            Continent, summary))
+```
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(aes(Continent, Emissions_Capita), data = df) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(0.01, 100)) + 
+  stat_summary(fun.y = mean, 
+               geom="point", 
+               color="red") +
+  scale_y_log10()
+
+with(df, by(Emissions_Capita, 
+            Continent, 
+            summary))
+```
+
+
+Both have lots of outliers 
+with europe showing the highest per capita alongside Asia with Australia and North America closely behind. Just as in the case of the 
+bar charts, the emissions yearly with continents boxplot is slightly different, Australia and North America emitts 
+comparatively little with Europe still showing pretty high. One reason for this is that since Europe consists of many 
+countries that contribute a fair bit in addition to a number of countries that contribute a lot mixed with Europe's 
+relatively small population drives up the per capita emission for Europe.
+
+
+What Continents are contributing the most to the global population?
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Continent, 
+           Populations/1000000000), 
+       data = subset(df, 
+                     Year == 2009)) + 
+  geom_bar(stat="identity") + 
+  ylab("Total Populations(In Billions)") +
+  scale_y_continuous(breaks = seq(0, 4, 0.5))
+
+with(subset(df, 
+            Year == 2009), 
+     by(Populations/1000000000, 
+        Continent, 
+        sum))
+```
+
+
+As expected, Asia contributes a large amount, this is definitely due to contries like India and China both being a part of the continent. Again, this sums up the populations for all the countries we have for every year we have.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Populations, 
+           Emissions_Yearly_Total), 
+       data = df) + 
+  geom_point()
+
+```
+
+A scatterplot of Emissions yearly and populations is irregularly shaped but it does show a pattern, applying the log function 
+to both axis results in a more linearly shaped plot with an increase as well in the correlation score of 0.75
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Populations, 
+           Emissions_Yearly_Total), 
+       data = df) + 
+  geom_point(alpha = 1/9, 
+             size=3) +
+  scale_x_log10() + 
+  scale_y_log10()
+
+with(df, cor.test(log10(Populations), log10(Emissions_Yearly_Total)))
+```
+
+How has emissions yearly changed over the years? 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Year, 
+           Emissions_Yearly_Total), 
+       data = df) + 
+  geom_line(stat = "summary", 
+            fun.y = median) + 
+  xlim(c(1960, 2009))
+
+ggplot(aes(Year, Emissions_Capita), 
+       data = df) + 
+  geom_line(stat = "summary", 
+            fun.y = median) + 
+  xlim(c(1960, 2009))
+```
+
+There seems to have been an increase. 
+
+Does a higher literacy rate result in more or lower carbon emission?
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Literacy, 
+           Emissions_Capita), 
+       data = df) + 
+  geom_point()
+with(df, cor.test(Literacy, 
+                  Emissions_Capita))
+
+ggplot(aes(Literacy, log10(Emissions_Capita)), 
+       data = df) + 
+  geom_point()
+with(df, cor.test(Literacy, 
+                  log10(Emissions_Capita)))
+```
+
+
+An initial plot without transformation didn't show much of a trend and also gave a cor test of 0.2, 
+however, applying a log transformation to the emissions capita resulted in much better R2 of 0.7. This shows a positive 
+correlation between literacy and per capita emissions. 
+
+
+Does more energy use mean a high rate of emission?
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+with(df, cor.test(Energy_Use, Emissions_Capita))
+
+ggplot(aes(Energy_Use, Emissions_Capita), 
+       data = df) + 
+  geom_point(color = I("orange"), 
+             alpha = 1/3)
+
+with(df, 
+     cor.test(log10(Energy_Use), 
+                  log10(Emissions_Capita)))
+
+ggplot(aes(Energy_Use, Emissions_Capita), 
+       data = df) + 
+  geom_point(color = I("orange"), 
+             alpha = 1/3) + 
+  scale_x_log10() +
+  scale_y_log10()
+```
+
+There is a very high correlation between these two features with a correlation score of 0.85 without any transformations and a score of 0.9 with. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+with(df, cor.test(GDP, Emissions_Yearly_Total))
+ggplot(aes(GDP, 
+           Emissions_Yearly_Total), 
+       data = df) + 
+  geom_point(alpha = 1/5)
+
+with(df, cor.test(log10(GDP), 
+                  log10(Emissions_Yearly_Total)))
+
+ggplot(aes(GDP, 
+           Emissions_Yearly_Total), 
+       data = df) + 
+  geom_point(alpha = 1/5) + 
+  scale_x_log10() +
+  scale_y_log10()
+```
+
+
+There is a high positive correlation between Energy use and emissions capita, and as well as between GDP and emissions yearly, 
+this increases to 0.9 when a log transformation is applied to both variables. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Access_Elec, Emissions_Capita), data = df) + 
+  geom_point()
+with(df, cor.test(Access_Elec, Emissions_Capita))
+
+ggplot(aes(Access_Elec, 
+           Emissions_Capita, 
+           color = Continent), 
+       data = df) + 
+  geom_point() +  
+  scale_y_log10()
+with(df, cor.test(Access_Elec, 
+                  log10(Emissions_Capita)))
+
+```
+
+
+There is also a strongly correlated relationship between Percentage with access to electricity and Emissions per capita.
+
+##Multivariate Analysis
+
+Heat Maps
+
+What Countries are driving the global emissions for each continent?
+
+Europe
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = Year, 
+           y = Country, 
+           fill = Emissions_Yearly_Total), 
+       data = subset(df, 
+                     Continent == "Europe")) +
+  geom_tile() + 
+  scale_fill_gradientn(colours = colorRampPalette(c('white', 'green'))(100)) +
+  scale_x_continuous(breaks = seq(1960, 2010, 10))
+```
+
+
+Asia
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = Year, 
+           y = Country, 
+           fill = Emissions_Yearly_Total), 
+       data = subset(df, Continent == "Asia")) +
+  geom_tile() + 
+  scale_fill_gradientn(colours = colorRampPalette(c('white', 'green'))(100)) +
+  scale_x_continuous(breaks = seq(1960, 2010, 10))
+```
+
+Africa
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = Year, 
+           y = Country, 
+           fill = Emissions_Yearly_Total), 
+       data = subset(df, Continent == "Africa")) +
+  geom_tile() + 
+  scale_fill_gradientn(colours = colorRampPalette(c('white', 'green'))(100)) +
+  scale_x_continuous(breaks = seq(1960, 2010, 10))
+```
+
+
+S. America
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = Year, 
+           y = Country, 
+           fill = Emissions_Yearly_Total), 
+       data = subset(df, Continent == "South America")) +
+  geom_tile() + 
+  scale_fill_gradientn(colours = colorRampPalette(c('white', 'green'))(100)) +
+  scale_x_continuous(breaks = seq(1960, 2010, 10))
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = Year, 
+           y = Country, 
+           fill = Emissions_Yearly_Total), 
+       data = subset(df, Continent == "Australia")) +
+  geom_tile() + 
+  scale_fill_gradientn(colours = colorRampPalette(c('white', 'green'))(100)) +
+  scale_x_continuous(breaks = seq(1960, 2010, 10))
+```
+
+N.America
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = Year, 
+           y = Country, 
+           fill = Emissions_Yearly_Total), 
+       data = subset(df, Continent == "North America")) +
+  geom_tile() + 
+  scale_fill_gradientn(colours = colorRampPalette(c('white', 'green'))(100)) +
+  scale_x_continuous(breaks = seq(1960, 2010, 10))
+```
+
+Thanks to the heat maps, we can see what countries in each continent contribute the most to the continent's emissions. 
+
+In this section, we can explore multiple features in earlier plots
+
+Looking at the emissions by populations scatterplot but coloured by continents.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Populations, Emissions_Yearly_Total, color = Continent), 
+       data = df) + 
+  geom_point() +
+  scale_x_log10() +
+  scale_y_log10()
+with(df, 
+     cor.test(Populations, 
+                  Emissions_Yearly_Total))
+```
+
+As expected, Africa seems to be at the bottom with Asia being very spread out. 
+
+
+Are global emissions yearly and capita increasing over the years for every continent?
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Year, 
+           log10(Emissions_Yearly_Total), 
+           color = Continent), 
+       data = df) + 
+  geom_line(stat = "summary", 
+            fun.y = median) + 
+  xlim(c(1960, 2009))
+
+```
+
+This seems to be the case for every one of the continents, this makes sense since countries will emit more as they develop and their population increases. We can check both GDP and Population features to see if those increase with time as well. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Year, 
+           log10(Populations), 
+           color = Continent), 
+       data = df) + 
+  geom_line(stat = "summary", 
+            fun.y = median) + 
+  xlim(c(1960, 2009))
+```
+
+There has been a steady increase in populations over the years.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Year, log10(GDP), color = Continent), data = df) + 
+  geom_line(stat = "summary", fun.y = median) + 
+  xlim(c(1960, 2009))
+
+```
+
+GDP also shows a steady rise excepting the dips in 1980-83, 1990-93, 1998, 2001-02, and 2008-09 which corresponds to all the years there was a global recession. We have seen from an earlier scatterplot that GDP is positively correlated with Emissions. While this doesn't mean a causation, it makes sense that a country would emit more the higher the GDP as one contributor to a rising GDP is a country becoming more industrialized, another cause is more trade which also means more production and therefore, more emission. 
+
+Looking at the Emissions per Capita
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(aes(Year, Emissions_Capita, color = Continent), 
+       data = df) + 
+  geom_line(stat = "summary", fun.y = median) + 
+  xlim(c(1960, 2009)) +
+  scale_y_log10()
+```
+
+Just as in the case of emissions yearly, emissions capita also sees a steady rise over the years for each continent.
+
+How do the emissions features by energy use, access to electricity and literacy rate vary by continent?
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(log10(Energy_Use), 
+           log10(Emissions_Capita), 
+           color = Continent), 
+       data = df) + 
+  geom_point()
+
+with(df, 
+     cor.test(log10(Energy_Use), 
+                  log10(Emissions_Capita)))
+
+```
+
+There does seem to be a strong positive correlation between energy use and emissons per capita, energy use is the average energy use per capita for a country and since emissions per capita is the emissions per person, it makes sense there should be a correlation between both, splitting it up by continent also shows a pattern, most of Africa along with some Asian countries are populated on the lower left implying a low energy use and emissions per capita, as expected, Europe, America and some of Asia occupies the top right part of the scatterplot. Below is the correlation score.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Access_Elec, 
+           log10(Emissions_Capita), 
+           color = Continent), 
+       data = df) + 
+  geom_point(size = 3)
+
+with(df, cor.test(Access_Elec, 
+                  log10(Emissions_Capita)))
+```
+
+The access to electricity rate measures the percentage of a country with access to electricity, there is also a positive correlation here and it shows the countries with the most access also seem to be the worst offenders. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Literacy, log10(Emissions_Capita), 
+           color = Continent), 
+       data = df) + 
+  geom_point()
+
+with(df, 
+     cor.test(Literacy, 
+                  log10(Emissions_Capita)))
+```
+
+Literacy rate measures the rate of adults aged 15 & over that are literate for each country, the scatterplot of Literacy to emissions capita shows a similar pattern as energy use to emissions capita with a similar distribution and a correlation score of 0.7.
+
+
+Showing the GDP by Emissions yearly plot by continent...
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(aes(GDP, 
+           Emissions_Yearly_Total, 
+           color = Continent), 
+       data = df) + 
+  geom_point(alpha = 1/5, 
+             size = 4) + 
+  scale_x_log10() +
+  scale_y_log10()
+with(df, cor.test(GDP, 
+                  Emissions_Yearly_Total))
+
+```
+
+GDP by Emissions yearly also shows a very strong positive correlation, with the same above mentioned patterns, the ony difference is some countries in the continent of Australia show an even lower GDP and yearly emission than countries in Africa, this makes sense since some of those countries are very small countries. The top right part of the plot follows the usual trend of some Asian countries, Europe and North America having both a high GDP and yearly emissions.
+
+
+We can see pattern emerging in pretty much all the plots colored with continents. 
+
+The plan is now to setup a linear model individually for both emissions per capita and emissions yearly variables. For the 
+emissions per capita variable, the features to use are Year, Literacy, Energy Use, Access to electricity and Continent, and 
+for the emissions yearly, Year, Continent, GDP and Population. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(memisc)
+yr1 = lm(I(log(Emissions_Yearly_Total)) ~ I(log(Populations)), data = df)
+yr2 = update(yr1, ~ . + Year)
+yr3 = update(yr2, ~ . + I(log10(GDP)))
+yr4 = update(yr3, ~ . + Continent)
+
+cap1 = lm(I(log10(Emissions_Capita)) ~ Year, data = df)
+cap2 = update(cap1, ~ . + Literacy)
+cap3 = update(cap2, ~ . + I(log10(Energy_Use)))
+cap4 = update(cap3, ~ . + Access_Elec)
+cap5 = update(cap4, ~ . + Continent)
+
+mtable(yr1, yr2, yr3, yr4)
+mtable(cap1, cap2, cap3, cap4, cap5)
+```
+
+
+
+I will use Russia as a test case since Russia isn't included in the dataset. Looking through databank's website, I see Russia 
+has the following information for the year 2010, Emissions - 1,740,776kt, 12.2Metric tons per capita, population - 142385523, 
+GDP - 1524916112078.9, Literacy rate and Access to Electricity rate at 100% and Energy used is 4932kg of oil equivalent per 
+capita. Splitting these into two seperate datasets so as to test for both emissions yearly and Emissions per capita in the 
+model. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+yrModel = data.frame(Year = 2010, 
+                     Populations = 142385523, 
+                     GDP = 1524916112078.9, 
+                     Continent = "Europe")
+
+capModel = data.frame(Year = 2010, 
+                      Literacy = 100, 
+                      Access_Elec = 100, 
+                      Energy_Use = 4932, 
+                      Continent = "Europe")
+
+yrPred = predict(yr4, 
+                 newdata = yrModel, 
+                 interval = "prediction", 
+                 level = 0.95)
+
+capitaPred = predict(cap5, 
+                     newdata = capModel, 
+                     interval = "prediction", 
+                     level = 0.95)
+
+yrPred = exp(yrPred)
+capitaPred = exp(capitaPred)
+
+yrPred
+capitaPred
+```
+
+
+Results
+The Emissions Capita model prediction for Russia for the 2010 is 13.99 within a confidence interval of 0.95. The actual emissions of 12.2 Metric tons falls within this range. 
+
+Russia's 2010 emission was 1,740,776kilotonnes, the model fit predicted 791479.4 which is about a million Kilotonnes less than the actual, though it falls within the lower and upper bound predicted by the model. 
+
+
+#Final Plots and Summary
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(MASS)
+library(scales)
+qplot(x = Emissions_Yearly_Total, 
+      fill = Continent, 
+      data = df, 
+      binwidth = 0.5,
+      position = "dodge") + 
+  scale_x_continuous(trans = log10_trans(),
+                        breaks = trans_breaks("log10", function(x) 10^x),
+                        labels = trans_format("log10", math_format(10^.x))) + 
+  xlab("Emissions Yearly (Kilotonnes)") + 
+  ylab("Count") + 
+  ggtitle("Histogram of Emissions Yearly split by Continent")
+```
+
+This first plot I chose because I feel like it shows the distributions of emissions yearly contribution by each continent. The plot also shows how variable each of the continents are, for example, Asia holds the most number of people of all the continents and it's emissions is also very diverse and variable, Asia of all the continents holds a diverse range countries, from contributing lowly to emissions to medium to contributing a lot, also noticeable is that Asia by itself, is normally distriuted. Other continents while also variable are not to that extent, Africa mostly contains continents on the lower end to medium, North America and Europe along with some Asia (most likely China) dominates the higher end with everybody else in the lower to upper middle. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(gridExtra)
+continents = factor(df$Continent, c('Africa', 'Australia', 'North America', 'South America', 'Asia', 'Europe'))
+g1 = ggplot(aes(continents, 
+                Populations/1000000000), 
+            data = df) + 
+  geom_boxplot() + 
+  ylab("World Populations(in billions)") +
+  scale_y_log10() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10))
+                                                                                                                               g2 = ggplot(aes(continents, Emissions_Yearly_Total/1000000), data = df) + 
+  geom_boxplot() + 
+  ylab("Yearly Emissions Total(in millions)") +
+  scale_y_log10() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10))
+                                                                                                                               
+g3 = ggplot(aes(continents, Emissions_Capita/1000), data = df) +
+  geom_boxplot() + 
+  ylab("Emissions Per Capita(in thousands)") +
+  scale_y_log10() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10))
+
+grid.arrange(g1, g2, g3, ncol = 3)
+
+```
+
+
+This is a plot of three boxplots technically, comparing different features by Continents, the first shows how much of the world's populations each continent has taken up, the second shows how the emissions per Continent and the final shows each continent's per capita contributions to emission. The boxplot also shows how each continent varies in all three plots. The reason for this plot mostly is to add some context. Taking Australia and S.America as an example, South America shows a much higher yearly emissions than Australia, and while this might on the surface seem like all there is to it, adding in some context, Populations, we see that Australia shows a much higher per capita emissions than S.America, then looking at the populations by continent, we can see that S.America contains a lot more people than Australia and it's emissions isn't bad at all at least compared to Australia.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(Populations, Emissions_Yearly_Total, color = Continent), 
+       data = df) +
+  geom_point(size=3, 
+             alpha = 1/6) +
+  scale_x_continuous(trans = log10_trans(),
+                        breaks = trans_breaks("log10", function(x) 10^x),
+                        labels = trans_format("log10", math_format(10^.x))) +
+  scale_y_continuous(trans = log10_trans(),
+                        breaks = trans_breaks("log10", function(x) 10^x),
+                        labels = trans_format("log10", math_format(10^.x))) +
+  ggtitle("Scatterplot of Populations vs Emissions Yearly") + 
+  ggtitle("Scatterplot of Emissions Yearly by Populations") + 
+  ylab("Yearly Emissions")
+```
+
+The final plot shows the positive linear relationship between world population and yearly emissions. This makes sense since the more people there are, the more emissions likely would be generated. The reason for this plot is to visualize the three variables Continents, Yearly emissios and populations relative to each other. This plot shows a poitive strong correlation between populations and emissions yearly, it also shows the same movement for continents, so not only are the populations for each continent rising, the emissions for each continent is also rising. The continents are emitting more just as their populations are growing
+
+#Reflections
+
+This has been an interesting dataset to work on, problems encountered are mostly related to wrangling the data and merging the individual datasets. The features were chosen intuitively, most worked well and revealed insightful information but some weren't so fruitful. 
+
+There were a number of very interesting correlations from the start with the scatterplot matrix, although emissions yearly is highly correlated individually with both 
+GDP and Populations, GDP and Populations aren't necessarily strongly correlated. This  makes sense since a rising population 
+will or at least should contribute to rising emissions and also rising GDP implies a  growing economy which also 
+should contribute to rising emissions but a growing population won't necessarily by itself strongly drive the GDP of a 
+country.
+
+Another interesting pair of variables are the emissions per capita and Energy use. Energy use isn't necessarily highly 
+correlated with emissions yearly but it is highly correlated with emissions per capita. This makes sense since both emissions 
+per capita and Energy use are per capita, it is intuitive that the amount of energy used per person would be positively 
+correlated with the amount of carbon emitted per person.
+
+The correlation between Literacy rate and access to electricity is possibly due to the fact that individuals in more 
+developed countries would have more access to electricity as well as education, I thought it'd be interesting to add country's literacy rate to this dataset so as to compare what correlation it has to 
+emission, it made sense to compare this to emissions per capita since the literacy measures the rate for 15s & over for a 
+country's population. 
+While this might seem counter intuitive at first, it actually makes sense 
+since more developed countries would have a higher literacy rate and also a high rate of emission. The reason I say this seemed counter intuitive at fist is because I chose to add this feature hoping I'd find a negative correlation implying that a higher literacy rate would mean a higher chance of awareness and education on global warming hence, lower emissions, while this is likely true, more awareness wouldn't necessarily translate to taking steps towards improving the situation. Besides, countries with low emissions aren't necessarily doing so because of awareness or education, they usually are because they're just not capable of burning that much carbon based fuel due to development. So it is possible for a higher literacy rate to mean lower emissions, it would however only mean lower emissions among countries with an already high emission and not compared to countries already with a low emission rate.
+
+Jumping forward to the linear model built, since I chose two features of interest, I decided to build a different model for each, this was in part drived by finding different variables correlating with each of the features of interest. Russia was chosen as the test case because Russia is not in the dataset and I was able to find all the relevant data for Russia to test with. Both Correlation scores are looking pretty good, included in the mtable are coefficients and correlation scores for both. Both are over 0.9. 
+
+I definitely will keep working on this dataset as there are many more opportunities for finding interesting things from it, one thing I'd like to look into in the future would be predicting what the global emissions would be like in the future and to look more into maybe comparing this dataset with a dataset if possible of natural disasters and to see if there might be a correlation between both.
